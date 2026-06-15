@@ -1,0 +1,167 @@
+{
+  "info": {
+    "name": "Cinema Booking API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost" },
+    { "key": "token",    "value": "" },
+    { "key": "showtime_id", "value": "" },
+    { "key": "seat_id",     "value": "" },
+    { "key": "booking_id",  "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/health"
+      }
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Google Login (redirect)",
+          "request": { "method": "GET", "url": "{{base_url}}/api/auth/google" }
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/auth/me",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Showtimes",
+      "item": [
+        {
+          "name": "List Showtimes",
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "const data = pm.response.json();",
+              "if (data && data.length > 0) {",
+              "  pm.collectionVariables.set('showtime_id', data[0].id);",
+              "}"
+            ]}
+          }],
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/showtimes",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+          }
+        },
+        {
+          "name": "List Seats by Showtime",
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "const data = pm.response.json();",
+              "const avail = data.find(s => s.status === 'AVAILABLE');",
+              "if (avail) pm.collectionVariables.set('seat_id', avail.id);"
+            ]}
+          }],
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/showtimes/{{showtime_id}}/seats",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Booking Flow",
+      "item": [
+        {
+          "name": "1. Lock Seat",
+          "event": [{
+            "listen": "test",
+            "script": { "exec": [
+              "const data = pm.response.json();",
+              "if (data.booking_id) pm.collectionVariables.set('booking_id', data.booking_id);"
+            ]}
+          }],
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/bookings/lock",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"showtime_id\": \"{{showtime_id}}\",\n  \"seat_id\": \"{{seat_id}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "2. Confirm Booking (Payment)",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/bookings/{{booking_id}}/confirm",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+          }
+        },
+        {
+          "name": "Cancel Booking",
+          "request": {
+            "method": "DELETE",
+            "url": "{{base_url}}/api/bookings/{{booking_id}}",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+          }
+        },
+        {
+          "name": "My Bookings",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/bookings/me",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "List All Bookings",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/admin/bookings?status=CONFIRMED&limit=20&page=1",
+              "query": [
+                { "key": "status", "value": "CONFIRMED" },
+                { "key": "limit",  "value": "20" },
+                { "key": "page",   "value": "1" }
+              ]
+            },
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+          }
+        },
+        {
+          "name": "Audit Logs",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/admin/audit-logs?event_type=BOOKING_SUCCESS",
+              "query": [{ "key": "event_type", "value": "BOOKING_SUCCESS" }]
+            },
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+          }
+        },
+        {
+          "name": "Stats",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/admin/stats",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }]
+          }
+        }
+      ]
+    }
+  ]
+}
